@@ -8,20 +8,23 @@ namespace SFML.Controls
     public class Button : Drawable
     {
         /// <summary>
-        /// Visual Proporties of the Button class
+        /// Updatable members outside of the class
         /// </summary>
+
         public Vector2f Position
         {
             get => Rect.Position;
             set
             {
-                Rect.Position = value;
+                // (???) Check if size and position changing works normally
+                Rect.Position = value; //+ new Vector2f(BorderHover, BorderHover)
                 BasePosition = value;
             }
         }
 
         public Vector2f Size
         {
+            // Add border thickness to returned value
             get => Rect.Size;
             set
             {
@@ -42,58 +45,53 @@ namespace SFML.Controls
             }
         }
 
-        private RectangleShape Rect { get; set; }
-        private Vector2f BaseSize { get; set; }
-        private Vector2f BasePosition { get; set; }
-
         // Border Color
         public float BorderBaseColor { get; set; }
         public float BorderHoverColor { get; set; }
         public float BorderPressedColor { get; set; }
-
-        // Border thickness
-        private float BorderBase { get; set; }
-        private float BorderHover { get; set; }
 
         // Button colors
         public Color BaseColor { get; set; }
         public Color HoverColor { get; set; }
         public Color PressedColor { get; set; }
 
+        public bool Enabled { get; set; }
+
         /// <summary>
-        /// Functionality of the Button class
+        /// Non-updatable members outside of the class
         /// </summary>
+
+        // Border thickness
+        private const float BorderBase = 2.0f;
+        private const float BorderHover = 1.0f;
+
+        private RectangleShape Rect { get; set; }
+        private Vector2f BaseSize { get; set; }
+        private Vector2f BasePosition { get; set; }
+
         public event EventHandler Clicked;
 
-        // change to nullable and remove IsHeld
         MouseMoveEvent moveEvent;
         MouseButtonEvent buttonEvent;
 
-        public bool Enabled { get; set; }
-
         private bool IsHeld { get; set; }
         private bool Released { get; set; }
-
-        private Vector2i MousePosition { get; set; }
         private bool IsMouseInside { get; set; }
+        private bool PressedInside { get; set; }
+        private bool Pressed { get; set; }
 
-        private Vector2i PressPosition { get; set; }
-        private bool WasPressed { get; set; }
+        public Button(Vector2f size, Vector2f position) => Initialize(size, position);
+        public Button(Button b) => Initialize(b.Size, b.Position);
 
-        public Button(Vector2f size, Vector2f position)
+        private void Initialize(Vector2f size, Vector2f position)
         {
             Rect = new RectangleShape();
-            this.Size = size;
+            this.Size = size - new Vector2f(BorderBase, BorderBase);
+            this.Position = position + new Vector2f(BorderHover, BorderHover);
 
             Rect.FillColor = new Color(230, 230, 230);
             Rect.OutlineColor = new Color(150, 150, 150);
             Rect.OutlineThickness = 2.0f;
-
-            BorderBase = Rect.OutlineThickness;
-            BorderHover = Rect.OutlineThickness / 2;
-
-            BaseSize = size;
-            BasePosition = position;
 
             BaseColor = new Color(230, 230, 230);
             PressedColor = new Color(180, 230, 230);
@@ -140,32 +138,36 @@ namespace SFML.Controls
 
         private void UpdateState(RenderTarget target)
         {
-            if (IsHeld && !WasPressed)
+            // Checking if button was pressed inside the window
+            if (IsHeld && !Pressed)
             {
-                PressPosition = Mouse.GetPosition(target as RenderWindow);
-                WasPressed = true;
+                if (Rect.GetGlobalBounds().Contains(Mouse.GetPosition(target as RenderWindow).X, Mouse.GetPosition(target as RenderWindow).Y))
+                    PressedInside = true;
+                else Pressed = false;
+                Pressed = true;
             }
-            else if (!IsHeld) WasPressed = false;
+            else if (!IsHeld) Pressed = false;
 
-            // Updating mouse position state
+            // Checking if mouse is inside the window
             if (Rect.GetGlobalBounds().Contains(buttonEvent.X, buttonEvent.Y))
                 IsMouseInside = true;
             else IsMouseInside = false;
 
-            // Updating button state
-            if (Rect.GetGlobalBounds().Contains(PressPosition.X, PressPosition.Y) && IsHeld && IsMouseInside)
+            // Checking if pressed button was released
+            if (PressedInside && IsHeld && IsMouseInside)
                 Released = true;
             else Released = false;
         }
 
         private void UpdateButton()
         {
-            // WARNING!!
-            // FIX: Size of the button changes the first loop program is executed
-            if (IsMouseInside && IsHeld && Rect.GetGlobalBounds().Contains(PressPosition.X, PressPosition.Y) && Enabled)
+            // Button is pressed
+            if (IsMouseInside && IsHeld && PressedInside && Enabled)
                 SetButtonStyle(PressedColor, BorderBase, BorderHover);
+            // Mouse is hovering over button
             else if (IsMouseInside && Enabled)
                 SetButtonStyle(HoverColor, BorderBase, BorderHover);
+            // Default button style
             else SetButtonStyle(BaseColor, BorderHover, BorderBase);
         }
 
@@ -176,16 +178,6 @@ namespace SFML.Controls
             Rect.Size = BaseSize + new Vector2f(2 * offSet, 2 * offSet);
             Rect.Position = BasePosition - new Vector2f(offSet, offSet);
             Rect.OutlineThickness = borderSize;
-        }
-        
-        private Mouse.Button? GetButtonClickNullable()
-        {
-            if (Mouse.IsButtonPressed(Mouse.Button.Left)) return Mouse.Button.Left;
-            else if (Mouse.IsButtonPressed(Mouse.Button.Right)) return Mouse.Button.Right;
-            else if (Mouse.IsButtonPressed(Mouse.Button.Middle)) return Mouse.Button.Middle;
-            else if (Mouse.IsButtonPressed(Mouse.Button.XButton1)) return Mouse.Button.XButton1;
-            else if (Mouse.IsButtonPressed(Mouse.Button.XButton2)) return Mouse.Button.XButton2;
-            else return null;
         }
     }
 }
